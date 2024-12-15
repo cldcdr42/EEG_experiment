@@ -6,7 +6,7 @@ import time
 
 from pylsl import StreamInfo, StreamOutlet
 
-frequency = 2 # Hz
+frequency = 10 # Hz
 
 """
 # first create a new stream info (here we set the name to BioSemi,
