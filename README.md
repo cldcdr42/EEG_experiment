@@ -19,3 +19,6 @@ To install on a random PC:
 8) run program, do staff, stop program
 9) stop virtual environment  
     `deactivate`
+
+Plot example over 180 seconds of time synchro:
+![Alt text](img.png)
