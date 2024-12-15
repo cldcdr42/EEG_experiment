@@ -1,10 +1,13 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-#
-# measurements\_Arduino.csv
-#
-name = "20241215-190118"
+"""
+
+measurements\20241216-003332_Arduino.csv
+
+"""
+
+name = "20241216-003332"
 
 file1 = "measurements\\" + name + "_Arduino.csv"
 file2 = "measurements\\" + name + "_EEG.csv"
@@ -20,7 +23,7 @@ df2['Inlet_value'] = pd.to_numeric(df2['Inlet_value'], errors='coerce')
 df2 = df2.dropna().reset_index(drop=True)
 
 
-plot_on_separate = False
+plot_on_separate = True
 
 if plot_on_separate:
     # Plotting on separate plots
@@ -32,6 +35,7 @@ if plot_on_separate:
     ax1.set_ylabel('Weight', color='b')
     ax1.set_title('Weight over Time')
     ax1.tick_params(axis='y', labelcolor='b')
+    ax1.set_xlim([0, df1['Timestamp'].max()])
 
     # Plot data from df2 on the second plot
     ax2.plot(df2['Timestamp'], df2['Inlet_value'], color='g', label='Inlet Value', linestyle='--')
@@ -39,6 +43,7 @@ if plot_on_separate:
     ax2.set_ylabel('Inlet Value', color='g')
     ax2.set_title('Inlet Value over Time')
     ax2.tick_params(axis='y', labelcolor='g')
+    ax2.set_xlim([0, df1['Timestamp'].max()])
 
     plt.tight_layout()  # Adjusts the spacing between the plots
     plt.show()
@@ -51,12 +56,14 @@ else:
     ax1.set_xlabel('Time')
     ax1.set_ylabel('Weight', color='b')
     ax1.tick_params(axis='y', labelcolor='b')
+    ax1.set_xlim([0, df1['Timestamp'].max()])
 
     # Create a second y-axis on the right for df2
     ax2 = ax1.twinx()
     ax2.plot(df2['Timestamp'], df2['Inlet_value'], color='g', label='Inlet Value', linestyle='--')
     ax2.set_ylabel('Inlet Value', color='g')
     ax2.tick_params(axis='y', labelcolor='g')
+    ax2.set_xlim([0, df1['Timestamp'].max()])
 
     plt.title('Weight and Inlet Value over Time')
     plt.show()
