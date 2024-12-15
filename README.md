@@ -21,4 +21,5 @@ To install on a random PC:
     `deactivate`
 
 Plot example over 180 seconds of time synchro:
+(aroun 1k EEG samples per second, 25 ard samples per second, every 60 seconds drift is adjusted)
 ![Alt text](img.png)
