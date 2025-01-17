@@ -148,7 +148,8 @@ def main():
     ard_file = initialize_csv('measurements/', 'Arduino', ['Timestamp', 'Weight'])
     log_file = initialize_csv('measurements/', 'logs', ['log_data'])
 
-    write_to_csv(log_file, ['Name', 'Time', 'Author', 'Attempt'])
+    write_to_csv(log_file, ['Staff_name', 'Date', 'Time', 'subject_name', 'Attemp1'])
+    write_to_csv(log_file, ['Vlad', '16.12.2024', '16:00', 'Danya', 'N=1'])
 
     # Read COM_PORT and baudrate from config file
     with open("config", "r") as file:

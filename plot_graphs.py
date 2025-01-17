@@ -3,11 +3,11 @@ import matplotlib.pyplot as plt
 
 """
 
-measurements\20241216-003332_Arduino.csv
+measurements\20241216-170759_Arduino.csv
 
 """
 
-name = "20241216-003332"
+name = "20241216-170759"
 
 file1 = "measurements\\" + name + "_Arduino.csv"
 file2 = "measurements\\" + name + "_EEG.csv"

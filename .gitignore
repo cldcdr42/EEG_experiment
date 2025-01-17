@@ -1,0 +1,15 @@
+___Archive/
+___Archived_measurements/
+env/
+measurements/
+
+config
+requirements.txt
+env/Lib/site-packages/serial/urlhandler/__pycache__/protocol_loop.cpython-312.pyc
+config
+EEG_tenso_read.py
+measurements/20241216-003332_EEG.csv
+measurements/20241216-003332_logs.csv
+measurements/20241216-003332_Arduino.csv
+env/Lib/site-packages/serial/urlhandler/__pycache__/protocol_loop.cpython-312.pyc
+config
