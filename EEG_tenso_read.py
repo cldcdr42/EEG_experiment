@@ -15,6 +15,7 @@ def initialize_csv(file_path, data_type, headers):
         writer = csv.writer(file)
         writer.writerow(headers)
     return data_file
+    
 
 def write_to_csv(file_path, data):
     """
