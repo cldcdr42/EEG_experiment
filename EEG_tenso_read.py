@@ -17,6 +17,8 @@ def initialize_csv(file_path, data_type, headers):
     return data_file
     
 
+    
+
 def write_to_csv(file_path, data):
     """
     Write a row of data to the CSV file in a thread-safe manner.
