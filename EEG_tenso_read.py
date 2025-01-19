@@ -1,6 +1,8 @@
 import csv
 import serial
-from pylsl import StreamInlet, resolve_stream
+from pylsl import StreamInlet, resolve_streams
+
+import pandas as pd
 
 import time
 import threading
@@ -16,7 +18,6 @@ def initialize_csv(file_path, data_type, headers):
         writer.writerow(headers)
     return data_file
     
-
 def write_to_csv(file_path, data):
     """
     Write a row of data to the CSV file in a thread-safe manner.
@@ -30,9 +31,9 @@ def find_eeg_source(use_test_source=False):
     Locate the LSL data stream and return a StreamInlet for data access.
     """
     if use_test_source:
-        return StreamInlet(resolve_stream()[0])
+        return StreamInlet(resolve_streams()[0])
     else:
-        return StreamInlet(resolve_stream('name', 'NVX36_Data')[0])
+        return StreamInlet(resolve_streams('name', 'NVX36_Data')[0])
 
 def find_ard_port(com_port, baud_rate=9600):
     """
@@ -53,104 +54,28 @@ def find_ard_port(com_port, baud_rate=9600):
         print(f"Error opening COM port {com_port}: {e}")
         return None
 
-def read_eeg_data(inlet, file_path, stop_event, eeg_timestamp_list, lock):
-    first_read_flag = True
-    while not stop_event.is_set():  # Check if stop event is triggered
-        try:
-            sample, timestamp = inlet.pull_sample()
+def read_eeg_data(inlet, eeg_data, stop_event):
+    """
+    Start reading data from eeg until keyboard interrupt
+    """
+    while not stop_event.is_set():
+        sample, timestamp = inlet.pull_sample()
+        eeg_data.loc[len(eeg_data)] = [timestamp, sample[0]]
 
-            current_timestamp = time.perf_counter()
-
-            if first_read_flag:
-                start_timestamp = current_timestamp
-                first_read_flag = False
-            
-            """
-            if first_read_flag:
-                    start_timestamp = timestamp
-                    first_read_flag = False
-            """
-
-            with lock:  # Ensure safe access to the list
-                    eeg_timestamp_list.append(current_timestamp)
-
-            write_to_csv(file_path, [current_timestamp - start_timestamp, sample[0]])
-        except Exception as e:
-            print(f"EEG reading error: {e}")
-            continue
-            #time.sleep(0.1)  # Small sleep to avoid tight loop if error occurs
-
-def read_ard_data(serial_port, file_path, stop_event, ard_timestamp_list, lock):
-    first_read_flag = True
-    global drift_rate
-    while not stop_event.is_set():  # Check if stop event is triggered
+def read_ard_data(serial_port, ard_data, stop_event):
+    """
+    Start reading data from arduino until keyboard interrupt
+    """
+    while not stop_event.is_set():
         if serial_port.in_waiting > 0:
-            try:
-                value = serial_port.readline().decode('UTF-8').strip()
-                
-                current_timestamp = time.perf_counter()
-
-                if first_read_flag:
-                    start_timestamp = current_timestamp
-                    first_read_flag = False
-                
-                with lock:  # Ensure safe access to the list
-                    ard_timestamp_list.append(current_timestamp)
-
-                write_to_csv(file_path, [current_timestamp - start_timestamp + drift_rate, value])
-            except Exception as e:
-                print(f"Arduino reading error: {e}")
-                continue
-                #time.sleep(0.1)  # Small sleep to avoid tight loop if error occurs
+            timestamp, sample = serial_port.readline().decode('UTF-8').strip().split(';')
+            ard_data.loc[len(ard_data)] = [timestamp, sample]
         else:
             continue
-            #time.sleep(0.01)
-
-
-def sync_drift(eeg_timestamp_list, ard_timestamp_list, stop_event, lock):
-    """
-    Calculate and log the time drift between EEG and Arduino timestamps every 60 seconds.
-    """
-    interval = 1  # Check every second
-    elapsed_time = 0
-    global drift_rate
-
-    while not stop_event.is_set():
- 
-        time.sleep(interval)
-        elapsed_time += interval
-        if elapsed_time >= 60:
-            print("HIII")
-            with lock:
-                latest_eeg_time = eeg_timestamp_list[-1]
-                latest_ard_time = ard_timestamp_list[-1]
-
-                drift = latest_ard_time - latest_eeg_time
-                if drift > 0:
-                    drift_rate = -drift
-                else:
-                    drift_rate = drift
-
-                print(f"Time drift: {drift_rate:.6f} seconds")
-                print("Ardiuno: " + str(latest_ard_time))
-                print("EEG " + str(latest_eeg_time))
-
-                eeg_timestamp_list.clear()
-                ard_timestamp_list.clear()
-                elapsed_time = 0
-
 
 def main():
     # Create shared stop event for threads
     stop_event = threading.Event()
-
-    # Create CSV files
-    eeg_file = initialize_csv('measurements/', 'EEG', ['Timestamp', 'Inlet_value'])
-    ard_file = initialize_csv('measurements/', 'Arduino', ['Timestamp', 'Weight'])
-    log_file = initialize_csv('measurements/', 'logs', ['log_data'])
-
-    write_to_csv(log_file, ['Staff_name', 'Date', 'Time', 'subject_name', 'Attemp1'])
-    write_to_csv(log_file, ['Vlad', '16.12.2024', '16:00', 'Danya', 'N=1'])
 
     # Read COM_PORT and baudrate from config file
     with open("config", "r") as file:
@@ -163,33 +88,49 @@ def main():
         print("Failed to connect to Arduino. Exiting.")
         return
 
+    # find inlet for eeg
     inlet = find_eeg_source(use_test_source=True)
 
-    eeg_timestamp_list = []
-    ard_timestamp_list = []
-    lock = threading.Lock()
+    # create dataframes to store data
+    eeg_data = pd.DataFrame(columns=["Timestamp [sec]", "eeg_value [V]"])
+    ard_data = pd.DataFrame(columns=["Timestamp [sec]", "force_value [w]"])
 
-    global drift_rate
-    drift_rate = 0
-
+    # start main loop of data collection
     with ThreadPoolExecutor(max_workers=3) as executor:
-        executor.submit(read_eeg_data, inlet, eeg_file, stop_event, eeg_timestamp_list, lock)
-        executor.submit(read_ard_data, arduino, ard_file, stop_event, ard_timestamp_list, lock)
-        executor.submit(sync_drift, eeg_timestamp_list, ard_timestamp_list, stop_event, lock)
+        print("Startin data collection...")
+        executor.submit(read_eeg_data, inlet, eeg_data, stop_event)
+        executor.submit(read_ard_data, arduino, ard_data, stop_event)
 
         try:
             while True:
-                time.sleep(0.001)
+                pass
         except KeyboardInterrupt:
-            print("Exiting program...")
+            print("Exiting program gracefully...")
+
             stop_event.set()  # Signal threads to stop
 
             if arduino.is_open:
                 arduino.close()  # Close the serial port
-
+            
             executor.shutdown(wait=True)  # Wait for threads to clean up
+            
+            print("Saving data into file before exitting...")
 
-            print("Program successfully terminated.")
+            eeg_filename = "measurements/" + time.strftime("%Y%m%d_%H%M%S") + "_EEG.csv"
+            ard_filename = "measurements/" + time.strftime("%Y%m%d_%H%M%S") + "_Arduino.csv"
+
+            eeg_data["Timestamp [sec]"] = pd.to_numeric(eeg_data["Timestamp [sec]"], errors="coerce")
+            ard_data["Timestamp [sec]"] = pd.to_numeric(ard_data["Timestamp [sec]"], errors="coerce")
+
+            ard_data = ard_data.drop(index=0).reset_index(drop=True) 
+
+            eeg_data["Timestamp [sec]"] = eeg_data["Timestamp [sec]"] - eeg_data["Timestamp [sec]"].iloc[0]
+            ard_data["Timestamp [sec]"] = ard_data["Timestamp [sec]"] - ard_data["Timestamp [sec]"].iloc[0]
+
+            eeg_data.to_csv(eeg_filename, index=False)  # 'index=False' avoids writing row numbers
+            ard_data.to_csv(ard_filename, index=False)
+
+            print("Data saved, program successfully terminated.")
 
 if __name__ == "__main__":
     main()
