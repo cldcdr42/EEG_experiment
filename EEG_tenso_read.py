@@ -58,9 +58,28 @@ def read_eeg_data(inlet, eeg_data, stop_event):
     """
     Start reading data from eeg until keyboard interrupt
     """
+    columns = ["Timestamp [sec]", "eeg_value [V]"]
+
     while not stop_event.is_set():
         sample, timestamp = inlet.pull_sample()
         eeg_data.loc[len(eeg_data)] = [timestamp, sample[0]]
+        continue
+    
+        chunk, timestamp = inlet.pull_chunk(max_samples=256)
+
+        if timestamp:
+            new_data = pd.DataFrame(chunk, columns=['eeg_value [V]'])
+            new_data["Timestamp [sec]"] = timestamp
+
+            eeg_data = eeg_data.append(new_data)
+            #eeg_data.loc[-1] = [timestamp, chunk]
+            #print(timestamp, chunk)
+        #print("EEG_chunk:", chunk)
+        #print("EEG_time:", timestamp)
+        #new_eeg_data = pd.DataFrame(chunk, columns=columns[1:])
+        #new_eeg_data["Timestamp [sec]"] = timestamp
+        #print("EEG: " + str(timestamp) + "   " + str(chunk))
+        #eeg_data = pd.concat([eeg_data, new_eeg_data], ignore_index=True)
 
 def read_ard_data(serial_port, ard_data, stop_event):
     """
@@ -69,9 +88,8 @@ def read_ard_data(serial_port, ard_data, stop_event):
     while not stop_event.is_set():
         if serial_port.in_waiting > 0:
             timestamp, sample = serial_port.readline().decode('UTF-8').strip().split(';')
+            #print("Ard: " + str(timestamp) + "   " + str(sample))
             ard_data.loc[len(ard_data)] = [timestamp, sample]
-        else:
-            continue
 
 def main():
     # Create shared stop event for threads
@@ -123,6 +141,7 @@ def main():
             ard_data["Timestamp [sec]"] = pd.to_numeric(ard_data["Timestamp [sec]"], errors="coerce")
 
             ard_data = ard_data.drop(index=0).reset_index(drop=True) 
+            ard_data["Timestamp [sec]"] = ard_data["Timestamp [sec]"] / 1000
 
             eeg_data["Timestamp [sec]"] = eeg_data["Timestamp [sec]"] - eeg_data["Timestamp [sec]"].iloc[0]
             ard_data["Timestamp [sec]"] = ard_data["Timestamp [sec]"] - ard_data["Timestamp [sec]"].iloc[0]
